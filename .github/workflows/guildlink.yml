@@ -1,0 +1,35 @@
+name: GuildLink build
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  guildlink:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install LuaJIT
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends luajit
+      - name: Test the package builder
+        run: python3 -m unittest discover -s tests -p 'test_guildlink_build.py' -v
+      - name: Build GuildLink
+        run: python3 scripts/build-guildlink.py --output dist/guildlink-ci
+      - name: Compile every packaged Lua file
+        run: find dist/guildlink-ci/GuildLink dist/guildlink-ci/GuildLink_Arena -name '*.lua' -print0 | xargs -0 -n 1 luajit -bl > /dev/null
+      - name: Test the packaged addon with the Forever client model
+        run: python3 scripts/test-guildlink.py dist/guildlink-ci
+      - name: Save the installable alpha
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: GuildLink-alpha
+          path: |
+            dist/guildlink-ci/GuildLink-*.zip
+            dist/guildlink-ci/GuildLink-*.sha256
+            dist/guildlink-ci/manifest.json
